@@ -1,1 +1,5 @@
-streamlit\nrequests\nbeautifulsoup4\ndeepl\npython-dotenv\nchromadb\nsoynlp\nurllib3
+streamlit
+requests
+beautifulsoup4
+python-dotenv
+urllib3

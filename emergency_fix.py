@@ -1,4 +1,16 @@
-import requests
+import os
+
+# 1. 설치 에러 방지를 위한 깨끗한 라이브러리 목록 (requirements.txt)
+# 설치 실패 확률이 높은 무거운 라이브러리는 일단 제외하고 필수 항목만 넣었습니다.
+requirements = """streamlit
+requests
+beautifulsoup4
+python-dotenv
+urllib3
+"""
+
+# 2. 크롤러 코드 (crawler.py) - SSL 우회 및 범용 검색 기능 포함
+crawler_code = """import requests
 from bs4 import BeautifulSoup
 import streamlit as st
 from urllib.parse import urljoin
@@ -48,3 +60,16 @@ class EbcCrawler:
                 'date': '2026-01-31'
             }
         except: return {'title': 'Error', 'content': '', 'date': ''}
+"""
+
+# 파일 쓰기
+os.makedirs("backend/scripts", exist_ok=True)
+with open("backend/requirements.txt", "w", encoding="utf-8") as f:
+    f.write(requirements)
+with open("backend/scripts/crawler.py", "w", encoding="utf-8") as f:
+    f.write(crawler_code)
+# 설치 오류를 일으킬 수 있는 packages.txt는 비웁니다.
+with open("backend/packages.txt", "w") as f:
+    f.write("")
+
+print("✅ 복구 준비 완료! 이제 배포 명령어를 입력하세요.")
