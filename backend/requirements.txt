@@ -11,3 +11,4 @@ chromadb
 pyngrok
 et_xmlfile
 scrapy
+deepl
