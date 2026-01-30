@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+*.env
+
+# Node
+node_modules/
+.next/
+dist/
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Data
+backend/data/raw/*
+backend/data/processed/*
+!backend/data/raw/.gitkeep
+!backend/data/processed/.gitkeep

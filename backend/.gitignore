@@ -1,0 +1,23 @@
+# System
+__pycache__/
+*.py[cod]
+.venv/
+env/
+venv/
+.DS_Store
+
+# Enviroment Variables
+.env
+
+# Data
+data/raw/
+references/ebc_corpus.txt
+# (Optional) Keep sample corpus if small
+# references/corpus_sample.txt
+
+# Artifacts
+*.log
+*.csv
+*.xlsx
+*.json
+!references/glossary.json

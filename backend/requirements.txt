@@ -1,0 +1,12 @@
+streamlit
+pandas
+openpyxl
+selenium>=4.0.0
+webdriver-manager
+python-dotenv
+beautifulsoup4
+soynlp
+requests
+chromadb
+pyngrok
+et_xmlfile
