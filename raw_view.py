@@ -1,4 +1,7 @@
-import requests
+import os
+
+# 크롤러 코드 (crawler.py) - 노필터(No-Filter) 모드
+crawler_code = """import requests
 from bs4 import BeautifulSoup
 import streamlit as st
 from urllib.parse import urljoin
@@ -37,7 +40,7 @@ class EbcCrawler:
                 sample_links = []
                 for a in all_a[:10]:
                     sample_links.append(f"[{a.get_text(strip=True)}] -> {a['href']}")
-                st.code("\n".join(sample_links))
+                st.code("\\n".join(sample_links))
 
             # [수집 로직 대폭 완화]
             for a in all_a:
@@ -84,3 +87,9 @@ class EbcCrawler:
                 'date': '2026-01-31'
             }
         except: return {'title': 'Error', 'content': '', 'date': ''}
+"""
+
+with open("backend/scripts/crawler.py", "w", encoding="utf-8") as f:
+    f.write(crawler_code)
+
+print("✅ 노필터(No-Filter) 진단 모드 설치 완료!")
