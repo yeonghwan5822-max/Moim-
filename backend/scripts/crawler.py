@@ -1,52 +1,47 @@
-import os
+import requests
+from bs4 import BeautifulSoup
 import time
-from selenium import webdriver
-from selenium.webdriver.firefox.options import Options
-from selenium.webdriver.firefox.service import Service
-from selenium.webdriver.common.by import By
 
 class EbcCrawler:
     def __init__(self, headless=True):
-        self.driver = None
-        self.headless = headless
-        self._init_driver()
+        # 브라우저 대신 '세션'을 사용 (로그인 유지 등 가능)
+        self.session = requests.Session()
+        # 사람인 척 위장하는 가면 (User-Agent)
+        self.headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
 
     def _init_driver(self):
-        options = Options()
-        options.add_argument("--headless")
-        options.add_argument("--window-size=1920,1080")
-        
-        # Streamlit Cloud 전용 설정 (파이어폭스)
-        # 1. 시스템에 설치된 파이어폭스 드라이버(geckodriver) 위치
-        service_path = "/usr/bin/geckodriver"
-        binary_path = "/usr/bin/firefox"
-
-        if os.path.exists(service_path) and os.path.exists(binary_path):
-            print("🦊 Cloud Environment: Using Firefox & GeckoDriver")
-            options.binary_location = binary_path
-            service = Service(service_path)
-        else:
-            # 로컬(맥북) 테스트용 fallback
-            print("💻 Local Environment: Using Webdriver Manager (Firefox)")
-            from webdriver_manager.firefox import GeckoDriverManager
-            service = Service(GeckoDriverManager().install())
-
-        try:
-            self.driver = webdriver.Firefox(service=service, options=options)
-            print("✅ 파이어폭스 시동 성공!")
-        except Exception as e:
-            print(f"❌ 파이어폭스 시동 실패: {e}")
-            raise e
-
-    def get_post_links(self, url, keyword=None):
-        print(f"Testing connection to: {url}")
-        if self.driver:
-            self.driver.get(url)
-            time.sleep(2)
-            print(f"Page Title: {self.driver.title}")
-            return []
-        return []
+        # 브라우저를 안 쓰니 초기화할 게 없음
+        pass
 
     def close(self):
-        if self.driver:
-            self.driver.quit()
+        pass
+
+    def get_post_links(self, url, keyword=None):
+        print(f"🚀 Fetching URL (Stealth Mode): {url}")
+        try:
+            # 1. 웹페이지 요청 (브라우저 없이 접속)
+            response = self.session.get(url, headers=self.headers)
+            response.raise_for_status() # 에러 체크
+            
+            # 2. HTML 해석
+            soup = BeautifulSoup(response.text, 'html.parser')
+            title = soup.title.string if soup.title else 'No Title'
+            print(f"✅ 접속 성공! 페이지 제목: {title}")
+            
+            # 3. 링크 찾기 (그누보드 패턴: wr_id)
+            links = []
+            for a in soup.find_all('a', href=True):
+                href = a['href']
+                # 게시글 링크 패턴이 보이면 수집
+                if 'wr_id=' in href and 'bo_table=' in href:
+                    full_link = href if href.startswith('http') else url + href
+                    links.append(full_link)
+            
+            print(f"Found {len(links)} links.")
+            return links
+
+        except Exception as e:
+            print(f"❌ Error: {e}")
+            return []
