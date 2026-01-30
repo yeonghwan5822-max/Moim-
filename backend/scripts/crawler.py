@@ -3,43 +3,50 @@ import time
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
 
 class EbcCrawler:
     def __init__(self, headless=True):
         self.driver = None
-        self.headless = headless
+        # 클라우드에서는 무조건 headless 모드여야 함
+        self.headless = True 
         self._init_driver()
 
     def _init_driver(self):
         options = Options()
-        options.add_argument("--headless")
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--disable-gpu")
-        options.add_argument("--window-size=1920,1080")
         
-        # 1. 클라우드 환경 (시스템 경로 강제)
+        # [핵심] 127 에러 및 충돌 방지 5대장 옵션
+        options.add_argument("--headless=new") # 구버전 headless보다 훨씬 안정적
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage") # 메모리 공유 에러 방지
+        options.add_argument("--disable-gpu")
+        options.add_argument("--window-size=1920,1080") # 화면 크기 0으로 인한 에러 방지
+        
+        # 1. Streamlit Cloud 환경 (시스템 경로 강제)
         if os.path.exists("/usr/bin/chromium") and os.path.exists("/usr/bin/chromedriver"):
-            print("🚀 Cloud Environment Detected: Using System Binaries")
+            print("🚀 Cloud Environment: Using System Binaries")
             options.binary_location = "/usr/bin/chromium"
             service = Service("/usr/bin/chromedriver")
         
-        # 2. 로컬 환경 (자동 다운로드)
+        # 2. 로컬 환경 (Fallback)
         else:
-            print("💻 Local Environment Detected: Using Webdriver Manager")
+            print("💻 Local Environment: Using Webdriver Manager")
+            from webdriver_manager.chrome import ChromeDriverManager
             service = Service(ChromeDriverManager().install())
-            if not self.headless:
-                options.arguments.remove("--headless")
 
-        self.driver = webdriver.Chrome(service=service, options=options)
+        try:
+            self.driver = webdriver.Chrome(service=service, options=options)
+            print("✅ 크롬 드라이버 시동 성공!")
+        except Exception as e:
+            print(f"❌ 크롬 시동 실패: {e}")
+            raise e
 
     def get_post_links(self, url, keyword=None):
-        # 테스트: 페이지 접속 후 제목 출력
-        print(f"Testing URL: {url}")
-        self.driver.get(url)
-        time.sleep(2)
-        print(f"Page Title: {self.driver.title}")
+        print(f"Testing connection to: {url}")
+        if self.driver:
+            self.driver.get(url)
+            time.sleep(1)
+            print(f"Page Title: {self.driver.title}")
+            return []
         return []
 
     def close(self):
