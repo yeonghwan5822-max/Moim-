@@ -39,7 +39,14 @@ class EbcCrawler:
         self.is_logged_in = False
 
     def _init_driver(self):
+        # 필요한 도구들을 함수 안에서 직접 다 가져오기 (안전빵)
         import shutil
+        import os
+        from selenium import webdriver
+        from selenium.webdriver.chrome.service import Service
+        from selenium.webdriver.chrome.options import Options
+        from webdriver_manager.chrome import ChromeDriverManager
+        
         if not self.driver:
             options = Options()
             options.add_argument("--headless")
@@ -47,17 +54,16 @@ class EbcCrawler:
             options.add_argument("--disable-dev-shm-usage")
             options.add_argument("--disable-gpu")
             
-            # 1. 시스템에 설치된 크롬 찾기 (클라우드용)
+            # 시스템 크롬 찾기
             sys_driver = shutil.which("chromedriver")
             if not sys_driver and os.path.exists("/usr/bin/chromedriver"):
                 sys_driver = "/usr/bin/chromedriver"
             
             if sys_driver:
-                print(f"✅ Cloud System Driver Found: {sys_driver}")
+                print(f"✅ Driver Found: {sys_driver}")
                 service = Service(sys_driver)
             else:
-                # 2. 없으면 다운로드 (로컬용)
-                print("⚠️ System driver missing. Using ChromeDriverManager...")
+                print("⚠️ Driver missing. Downloading...")
                 service = Service(ChromeDriverManager().install())
                 if not self.headless:
                     options.arguments.remove("--headless")
