@@ -1,4 +1,7 @@
-import requests
+import os
+
+# 크롤러 코드 (crawler.py) - 저인망식 추출 + 한글 깨짐 방지
+crawler_code = """import requests
 from bs4 import BeautifulSoup
 import streamlit as st
 from urllib.parse import urljoin
@@ -95,3 +98,9 @@ class EbcCrawler:
                 'date': '2026-01-31'
             }
         except: return {'title': 'Error', 'content': '', 'date': ''}
+"""
+
+with open("backend/scripts/crawler.py", "w", encoding="utf-8") as f:
+    f.write(crawler_code)
+
+print("✅ 초정밀 크롤러(한글 패치 포함) 설치 완료!")
