@@ -1,11 +1,9 @@
 import requests
 from bs4 import BeautifulSoup
-import time
 import streamlit as st
 from urllib.parse import urljoin, quote
 import urllib3
 
-# [핵심] SSL 경고 메시지 끄기
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 class EbcCrawler:
@@ -13,64 +11,72 @@ class EbcCrawler:
         self.session = requests.Session()
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+            'Referer': 'https://m.ebcblue.com/'
         }
 
     def _init_driver(self): pass
     def close(self): pass
 
     def get_categorized_links(self, url, keyword=None, *args, **kwargs):
-        # 검색 URL 생성 로직
-        final_url = url
-        if keyword:
-            encoded_kw = quote(keyword.encode('utf-8'))
-            sep = "&" if "?" in url else "?"
-            final_url = f"{url}{sep}sfl=wr_subject||wr_content&stx={encoded_kw}"
-        
-        st.write(f"🌐 **접속 시도 (SSL 우회):** {final_url}")
-        raw_links = self.get_post_links(final_url, keyword)
+        st.info(f"🌐 대상 사이트 정밀 스캔 중: {url}")
+        raw_links = self.get_post_links(url, keyword)
         return {'notice': [], 'normal': raw_links}
 
     def get_post_links(self, url, keyword=None):
         links = []
         try:
-            # [핵심] verify=False 를 추가하여 SSL 인증서 검사를 건너뜁니다.
-            res = self.session.get(url, headers=self.headers, timeout=15, verify=False)
+            # 1. SSL 인증서 검사 무시하고 데이터 가져오기
+            res = self.session.get(url, headers=self.headers, verify=False, timeout=15)
             res.raise_for_status()
-            
             soup = BeautifulSoup(res.text, 'html.parser')
             
-            # 더 정밀한 링크 추출 (그누보드 모바일 게시판용)
-            all_a = soup.find_all('a', href=True)
-            for a in all_a:
-                href = a['href']
-                text = a.get_text(strip=True)
-                
-                # wr_id가 포함된 실제 게시글 링크만 필터링
-                if 'wr_id=' in href:
-                    if any(x in href for x in ['write', 'update', 'delete']): continue
-                    
-                    full_link = urljoin(url, href)
-                    if full_link not in links:
-                        # 키워드가 있다면 제목/링크 대조
-                        if not keyword or (keyword in text or keyword in full_link):
-                            links.append(full_link)
+            # 2. 게시판의 모든 '리스트 아이템' 또는 '링크' 탐색
+            # 그누보드 모바일은 보통 <li> 안에 제목과 링크가 있습니다.
+            items = soup.find_all(['li', 'tr', 'a']) 
             
-            st.success(f"🎯 **'{keyword if keyword else '전체'}'** 검색 결과: {len(links)}개 발견")
-            return links
+            for item in items:
+                # 해당 영역 안에 링크(<a>)가 있는지 확인
+                a_tag = item if item.name == 'a' else item.find('a', href=True)
+                if not a_tag or 'href' not in a_tag.attrs:
+                    continue
+                
+                href = a_tag['href']
+                text = item.get_text(strip=True) # 아이템 전체 텍스트를 가져와서 검사
+                
+                # 게시글 상세 페이지 패턴 (wr_id) 확인
+                if 'wr_id=' in href and 'bo_table=' in href:
+                    # 불필요한 링크 제외
+                    if any(x in href for x in ['write', 'update', 'delete', 'search']):
+                        continue
+                        
+                    full_link = urljoin(url, href)
+                    
+                    # [핵심] 키워드 매칭 로직 (제목 또는 전체 텍스트에 키워드가 있는지 확인)
+                    if not keyword:
+                        if full_link not in links: links.append(full_link)
+                    elif keyword in text or keyword in full_link:
+                        if full_link not in links: links.append(full_link)
+            
+            # 중복 제거
+            final_links = list(dict.fromkeys(links))
+            st.success(f"🎯 '{keyword if keyword else '전체'}' 키워드 게시물 {len(final_links)}개 발견!")
+            return final_links
+
         except Exception as e:
-            st.error(f"❌ 접속 실패: {e}")
+            st.error(f"❌ 데이터 추출 실패: {e}")
             return []
 
     def get_post_content(self, url):
         try:
             res = self.session.get(url, headers=self.headers, verify=False, timeout=10)
             soup = BeautifulSoup(res.text, 'html.parser')
-            title = soup.find('h1') or soup.find('h2') or soup.find('title')
-            content = soup.find(id="bo_v_con") or soup.find(class_="view-content")
+            # 모바일 게시판용 본문 영역 탐색
+            title = soup.find(['h1', 'h2', 'title'])
+            content = soup.find(id="bo_v_con") or soup.find(class_="view-content") or soup.body
             return {
                 'title': title.get_text(strip=True) if title else "제목 없음",
-                'content': content.get_text(strip=True)[:1500] if content else "본문 없음",
+                'content': content.get_text(strip=True) if content else "본문 없음",
                 'date': '2026-01-30'
             }
         except: return {'title': 'Error', 'content': '', 'date': ''}
