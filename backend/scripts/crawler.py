@@ -16,8 +16,14 @@ class EbcCrawler:
     def close(self):
         pass
 
-    def get_categorized_links(self, url, keyword=None):
-        print(f"🚀 [Stealth] Searching: {url}")
+    # [수정] 어떤 인자가 들어와도 에러 없이 다 받도록 수정 (*args, **kwargs 추가)
+    def get_categorized_links(self, url, keyword=None, *args, **kwargs):
+        print(f"🚀 [Stealth] Searching: {url} (Keyword: {keyword})")
+        
+        # 추가로 들어온 인자(예: 페이지 수)가 있다면 확인
+        max_pages = args[0] if args else 1
+        print(f"📄 Scan pages: {max_pages}")
+
         raw_links = self.get_post_links(url, keyword)
         return {
             'notice': [],
@@ -34,7 +40,7 @@ class EbcCrawler:
             for a in soup.find_all('a', href=True):
                 href = a['href']
                 if 'wr_id=' in href and 'bo_table=' in href:
-                    if 'write' in href or 'delete' in href or 'update' in href:
+                    if any(x in href for x in ['write', 'delete', 'update', 'reply']):
                         continue
                     full_link = urljoin(url, href)
                     if full_link not in links:
@@ -42,9 +48,8 @@ class EbcCrawler:
             
             print(f"✅ Found {len(links)} posts.")
             return links
-
         except Exception as e:
-            print(f"❌ Error fetching links: {e}")
+            print(f"❌ Error: {e}")
             return []
 
     def get_post_content(self, url):
