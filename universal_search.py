@@ -1,4 +1,10 @@
-import requests
+import os
+
+# 1. 경로 보장
+os.makedirs("backend/scripts", exist_ok=True)
+
+# 2. 범용 크롤러 엔진 (어떤 키워드든 대응 가능)
+crawler_code = """import requests
 from bs4 import BeautifulSoup
 import streamlit as st
 from urllib.parse import urljoin
@@ -19,7 +25,7 @@ class EbcCrawler:
     def close(self): pass
 
     def get_categorized_links(self, url, keyword=None, *args, **kwargs):
-        """사용자가 입력한 keyword를 기반으로 필터링을 수행합니다."""
+        \"\"\"사용자가 입력한 keyword를 기반으로 필터링을 수행합니다.\"\"\"
         search_msg = f"'{keyword}' 키워드로 검색 중..." if keyword else "전체 게시글 수집 중..."
         st.info(f"🌐 {search_msg} | 대상: {url}")
         
@@ -66,7 +72,7 @@ class EbcCrawler:
             return []
 
     def get_post_content(self, url):
-        """게시글 본문을 긁어오는 기능"""
+        \"\"\"게시글 본문을 긁어오는 기능\"\"\"
         try:
             res = self.session.get(url, headers=self.headers, verify=False, timeout=10)
             soup = BeautifulSoup(res.content, 'html.parser')
@@ -78,3 +84,13 @@ class EbcCrawler:
                 'date': '2026-01-31'
             }
         except: return {'title': 'Error', 'content': '', 'date': ''}
+"""
+
+with open("backend/scripts/crawler.py", "w", encoding="utf-8") as f:
+    f.write(crawler_code)
+
+# 3. 환경 파일 최신화
+with open("backend/requirements.txt", "w", encoding="utf-8") as f:
+    f.write("streamlit\\nrequests\\nbeautifulsoup4\\ndeepl\\npython-dotenv\\nchromadb\\nsoynlp\\nurllib3")
+
+print("💎 [Anti-Gravity] 범용 검색 엔진으로 업그레이드 완료!")

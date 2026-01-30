@@ -1,7 +1,1 @@
-streamlit
-requests
-beautifulsoup4
-deepl
-python-dotenv
-chromadb
-soynlp
+streamlit\nrequests\nbeautifulsoup4\ndeepl\npython-dotenv\nchromadb\nsoynlp\nurllib3
