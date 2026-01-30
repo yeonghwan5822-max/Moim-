@@ -39,23 +39,30 @@ class EbcCrawler:
         self.is_logged_in = False
 
     def _init_driver(self):
-        import os
-        from selenium import webdriver
-        from selenium.webdriver.chrome.service import Service
-        from selenium.webdriver.chrome.options import Options
-        from webdriver_manager.chrome import ChromeDriverManager
-        options = Options()
-        options.add_argument("--headless")
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--disable-gpu")
-        if os.path.exists("/usr/bin/chromedriver"):
-            service = Service("/usr/bin/chromedriver")
-        else:
-            service = Service(ChromeDriverManager().install())
-            if not self.headless:
-                options.arguments.remove("--headless")
-        self.driver = webdriver.Chrome(service=service, options=options)
+        import shutil
+        if not self.driver:
+            options = Options()
+            options.add_argument("--headless")
+            options.add_argument("--no-sandbox")
+            options.add_argument("--disable-dev-shm-usage")
+            options.add_argument("--disable-gpu")
+            
+            # 1. 시스템에 설치된 크롬 찾기 (클라우드용)
+            sys_driver = shutil.which("chromedriver")
+            if not sys_driver and os.path.exists("/usr/bin/chromedriver"):
+                sys_driver = "/usr/bin/chromedriver"
+            
+            if sys_driver:
+                print(f"✅ Cloud System Driver Found: {sys_driver}")
+                service = Service(sys_driver)
+            else:
+                # 2. 없으면 다운로드 (로컬용)
+                print("⚠️ System driver missing. Using ChromeDriverManager...")
+                service = Service(ChromeDriverManager().install())
+                if not self.headless:
+                    options.arguments.remove("--headless")
+            
+            self.driver = webdriver.Chrome(service=service, options=options)
     def check_domain_availability(self, url: str) -> bool:
         """
         DNS Lookup to check if domain exists before Selenium tries to access it.
