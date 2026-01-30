@@ -39,15 +39,29 @@ class EbcCrawler:
         self.is_logged_in = False
 
     def _init_driver(self):
-        """
-        Lazy initialization of driver.
-        Implements logic to handle Streamlit Cloud (System Driver) vs Local (Webdriver Manager).
-        """
+     import os
+        from selenium import webdriver
+        from selenium.webdriver.chrome.service import Service
+        from selenium.webdriver.chrome.options import Options
+        from webdriver_manager.chrome import ChromeDriverManager
+
         if not self.driver:
-            from selenium import webdriver
-            from selenium.webdriver.chrome.service import Service
-            from selenium.webdriver.chrome.options import Options
-            from webdriver_manager.chrome import ChromeDriverManager
+            options = Options()
+            options.add_argument("--headless")
+            options.add_argument("--no-sandbox")
+            options.add_argument("--disable-dev-shm-usage")
+            options.add_argument("--disable-gpu")
+
+            # 클라우드(리눅스) vs 로컬(맥북) 자동 감지
+            if os.path.exists("/usr/bin/chromedriver"):
+                service = Service("/usr/bin/chromedriver")
+            else:
+                service = Service(ChromeDriverManager().install())
+                # 로컬에서는 헤드리스 끄기 (테스트용)
+                if not self.headless:
+                    options.arguments.remove("--headless")
+
+            self.driver = webdriver.Chrome(service=service, options=options)
             
             options = Options()
             
