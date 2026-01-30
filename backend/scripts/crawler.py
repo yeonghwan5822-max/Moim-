@@ -1,7 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 import streamlit as st
-from urllib.parse import urljoin
+from urllib.parse import urljoin, quote
 import urllib3
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -9,66 +9,72 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 class EbcCrawler:
     def __init__(self, **kwargs):
         self.session = requests.Session()
+        # [핵심] 봇 차단 회피용 헤더
         self.headers = {
-            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Referer': 'https://m.ebcblue.com/',
+            'Accept-Language': 'ko-KR,ko;q=0.9'
         }
 
     def _init_driver(self): pass
     def close(self): pass
 
     def get_categorized_links(self, url, keyword=None, *args, **kwargs):
-        st.info(f"🔍 [노필터 모드] 접속 URL: {url}")
-        links = self.get_post_links(url, keyword)
+        # 검색어 유무에 따른 분기 처리
+        if keyword:
+            st.info(f"🚀 [검색 모드] 키워드 '{keyword}'로 직접 접근합니다.")
+            encoded_kw = quote(keyword.encode('utf-8'))
+            sep = "&" if "?" in url else "?"
+            # 검색 쿼리 직접 주입
+            target_url = f"{url}{sep}sfl=wr_subject||wr_content&stx={encoded_kw}"
+        else:
+            st.info(f"📡 [목록 모드] 전체 목록을 스캔합니다.")
+            target_url = url
+
+        links = self.get_post_links(target_url, keyword)
         return {'notice': [], 'normal': links}
 
     def get_post_links(self, url, keyword=None):
         links = []
         try:
+            # 1. 메인 페이지 방문 (쿠키 획득)
+            self.session.get("https://m.ebcblue.com/", headers=self.headers, verify=False, timeout=5)
+            
+            # 2. 실제 타겟 페이지 접속
             res = self.session.get(url, headers=self.headers, verify=False, timeout=15)
             res.encoding = res.apparent_encoding
             soup = BeautifulSoup(res.text, 'html.parser')
             
-            # 페이지에 있는 모든 <a> 태그 수집
+            # [진단] 현재 페이지 상황 출력
             all_a = soup.find_all('a', href=True)
-            
-            # [진단] 실제 링크 모양을 화면에 찍어봅니다 (상위 10개)
-            with st.expander("👀 크롤러가 보고 있는 실제 링크들 (여기를 눌러 확인)", expanded=True):
-                st.write(f"총 발견된 링크 수: {len(all_a)}개")
-                sample_links = []
-                for a in all_a[:10]:
-                    sample_links.append(f"[{a.get_text(strip=True)}] -> {a['href']}")
-                st.code("\n".join(sample_links))
+            with st.expander(f"🕵️‍♂️ 페이지 진단 (링크 {len(all_a)}개 발견)", expanded=True):
+                if not all_a:
+                    st.warning("링크가 0개입니다. 봇 차단되었거나 로그인이 필요할 수 있습니다.")
+                for a in all_a[:3]:
+                    st.text(f"샘플: [{a.get_text(strip=True)}] -> {a['href']}")
 
-            # [수집 로직 대폭 완화]
+            # 3. 링크 수집
             for a in all_a:
                 href = a['href']
-                text = a.get_text(strip=True)
-                full_link = urljoin(url, href)
-                
-                # 조건: 그냥 '글쓰기(write)', '검색(search)' 같은 게 아니면 다 가져옵니다.
-                # wr_id나 bo_table 검사를 뺐습니다.
-                is_junk = any(x in href for x in ['write', 'update', 'delete', 'search', 'login', 'logout', 'password'])
-                
-                if not is_junk:
-                    # 링크 길이가 너무 짧으면(메인화면 이동 등) 제외
-                    if len(href) > 3:
-                         # 키워드 필터링 (키워드가 있으면 검사)
-                        if keyword:
-                            if keyword.lower() in text.lower() or keyword.lower() in full_link.lower():
-                                if full_link not in links: links.append(full_link)
-                        else:
-                            # 키워드 없으면 무조건 수집
-                            if full_link not in links: links.append(full_link)
+                # wr_id 패턴 확인
+                if 'wr_id=' in href:
+                    if any(bad in href for bad in ['write', 'update', 'delete', 'search', 'login']): continue
+                    
+                    full_link = urljoin(url, href)
+                    
+                    # 이미 검색된 페이지라면(stx 포함) 키워드 검사 불필요
+                    if "stx=" in url:
+                        if full_link not in links: links.append(full_link)
+                    # 일반 목록이라면 텍스트 검사
+                    elif not keyword or (keyword in a.get_text() or keyword in full_link):
+                        if full_link not in links: links.append(full_link)
             
             if links:
-                st.success(f"🎯 필터 해제 후 {len(links)}개의 링크를 건졌습니다!")
-            else:
-                st.error("❌ 필터를 다 껐는데도 링크가 없습니다. 위 '실제 링크들'을 확인해주세요.")
-                
+                st.success(f"🎯 {len(links)}개의 게시글을 확보했습니다!")
             return links
 
         except Exception as e:
-            st.error(f"❌ 오류: {e}")
+            st.error(f"❌ 접속 오류: {e}")
             return []
 
     def get_post_content(self, url):
