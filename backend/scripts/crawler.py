@@ -1,8 +1,9 @@
 import requests
 from bs4 import BeautifulSoup
 import streamlit as st
-from urllib.parse import urljoin, quote, urlparse, parse_qs
+from urllib.parse import urljoin
 import urllib3
+import time
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -10,7 +11,7 @@ class EbcCrawler:
     def __init__(self, **kwargs):
         self.session = requests.Session()
         self.headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
             'Referer': 'https://m.ebcblue.com/'
         }
 
@@ -18,26 +19,52 @@ class EbcCrawler:
     def close(self): pass
 
     def get_categorized_links(self, url, keyword=None, *args, **kwargs):
-        st.info(f"📡 분석 시작: {url}")
+        st.info(f"📡 탐색 시작: {url}")
         
-        # 1차 시도: 현재 페이지에서 바로 찾기
-        links = self.get_post_links(url, keyword, depth=0)
-        
-        # 2차 시도: 없으면 게시판을 찾아서 들어가기 (자율주행)
-        if not links:
-            st.warning("⚠️ 현재 페이지에 게시글이 없습니다. 하위 게시판을 탐색합니다...")
-            board_links = self._find_board_links(url)
+        # 1. 입력된 URL에서 바로 시도
+        links = self.get_post_links(url, keyword, silent=True)
+        if links:
+            return {'notice': [], 'normal': links}
             
-            if board_links:
-                target_board = board_links[0] # 첫 번째 게시판 선택
-                st.success(f"🚀 [자율주행] 발견된 게시판으로 이동합니다: {target_board}")
-                links = self.get_post_links(target_board, keyword, depth=1)
-            else:
-                st.error("❌ 이동할 수 있는 게시판을 찾지 못했습니다.")
+        # 2. 실패 시, 메인 페이지에서 다른 게시판 목록 수집 (멀티 호퍼 가동)
+        st.warning("⚠️ 현재 페이지에서 소득이 없어, 다른 게시판들을 순찰합니다...")
+        board_list = self._find_all_boards(url)
+        
+        if not board_list:
+            st.error("❌ 이동할 수 있는 게시판을 찾지 못했습니다.")
+            return {'notice': [], 'normal': []}
 
-        return {'notice': [], 'normal': links}
+        # 3. 발견된 게시판들을 하나씩 순회
+        success_links = []
+        progress_bar = st.progress(0)
+        
+        for i, board_url in enumerate(board_list):
+            # 'calendar'(달력) 같은 특수 게시판은 건너뛰기 (효율성)
+            if 'calendar' in board_url: continue
+            
+            # 진행률 표시
+            progress_bar.progress((i + 1) / len(board_list))
+            st.write(f"🏃 이동 중: ...{board_url[-20:]}")
+            
+            # 접속 시도
+            found_links = self.get_post_links(board_url, keyword, silent=True)
+            
+            if found_links:
+                st.success(f"🎉 찾았다! [게시판: {board_url}]에서 {len(found_links)}개 발견!")
+                success_links = found_links
+                break # 하나라도 찾으면 즉시 중단하고 결과 반환
+            
+            time.sleep(0.5) # 서버 부하 방지
 
-    def _find_board_links(self, url):
+        progress_bar.empty()
+        
+        if not success_links:
+            st.error("😭 모든 방을 다 뒤졌는데 게시글을 못 찾았습니다.")
+            
+        return {'notice': [], 'normal': success_links}
+
+    def _find_all_boards(self, url):
+        # 메인 페이지에서 'board.php'가 들어간 모든 링크 추출
         try:
             res = self.session.get(url, headers=self.headers, verify=False, timeout=10)
             res.encoding = res.apparent_encoding
@@ -49,46 +76,38 @@ class EbcCrawler:
                     full_link = urljoin(url, href)
                     if full_link not in boards:
                         boards.append(full_link)
+            
+            st.info(f"🔎 총 {len(boards)}개의 게시판 입구를 발견했습니다.")
             return boards
         except: return []
 
-    def get_post_links(self, url, keyword=None, depth=0):
+    def get_post_links(self, url, keyword=None, silent=False):
         links = []
         try:
-            res = self.session.get(url, headers=self.headers, verify=False, timeout=15)
+            res = self.session.get(url, headers=self.headers, verify=False, timeout=10)
             res.encoding = res.apparent_encoding
             soup = BeautifulSoup(res.text, 'html.parser')
             
-            # 진단 로그 (메인 페이지일 때만 출력)
-            if depth == 0:
-                all_a = soup.find_all('a', href=True)
-                with st.expander(f"🕵️‍♂️ 페이지 진단 (링크 {len(all_a)}개)", expanded=True):
-                    for a in all_a[:3]:
-                        st.text(f"[{a.get_text(strip=True)}] -> {a['href']}")
-
             for a in soup.find_all('a', href=True):
                 href = a['href']
-                text = a.get_text(strip=True)
-                full_link = urljoin(url, href)
-                
-                # wr_id (게시글) 찾기
+                # wr_id(게시글) 패턴 확인
                 if 'wr_id=' in href:
                     if any(x in href for x in ['write', 'update', 'delete', 'search', 'login']): continue
                     
-                    # 키워드 필터링
+                    full_link = urljoin(url, href)
+                    text = a.get_text(strip=True)
+                    
                     if keyword:
                         if keyword.lower() in text.lower() or keyword.lower() in full_link.lower():
                             if full_link not in links: links.append(full_link)
                     else:
                         if full_link not in links: links.append(full_link)
             
-            if links:
-                st.success(f"🎯 {len(links)}개의 게시글을 찾았습니다! (출처: {url})")
-            
+            if not silent and links:
+                st.success(f"🎯 {len(links)}개 수집 완료")
+                
             return links
-        except Exception as e:
-            if depth == 0: st.error(f"❌ 오류: {e}")
-            return []
+        except: return []
 
     def get_post_content(self, url):
         try:
