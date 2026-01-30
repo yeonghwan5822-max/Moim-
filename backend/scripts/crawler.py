@@ -39,69 +39,23 @@ class EbcCrawler:
         self.is_logged_in = False
 
     def _init_driver(self):
-     import os
+        import os
         from selenium import webdriver
         from selenium.webdriver.chrome.service import Service
         from selenium.webdriver.chrome.options import Options
         from webdriver_manager.chrome import ChromeDriverManager
-
-        if not self.driver:
-            options = Options()
-            options.add_argument("--headless")
-            options.add_argument("--no-sandbox")
-            options.add_argument("--disable-dev-shm-usage")
-            options.add_argument("--disable-gpu")
-
-            # 클라우드(리눅스) vs 로컬(맥북) 자동 감지
-            if os.path.exists("/usr/bin/chromedriver"):
-                service = Service("/usr/bin/chromedriver")
-            else:
-                service = Service(ChromeDriverManager().install())
-                # 로컬에서는 헤드리스 끄기 (테스트용)
-                if not self.headless:
-                    options.arguments.remove("--headless")
-
-            self.driver = webdriver.Chrome(service=service, options=options)
-            
-            options = Options()
-            
-            # --- 1. Define Options ---
-            # Cloud Mandates (Applied if we detect Cloud, or if Headless requested)
-            # We strictly apply these for Cloud stability.
-            cloud_options = [
-                "--headless", 
-                "--no-sandbox", 
-                "--disable-dev-shm-usage", 
-                "--disable-gpu",
-                "--disable-blink-features=AutomationControlled"
-            ]
-            
-            # Check Environment: Streamlit Cloud usually has /usr/bin/chromedriver
-            system_driver_path = "/usr/bin/chromedriver"
-            is_cloud_env = os.path.exists(system_driver_path)
-            
-            if is_cloud_env:
-                logging.info(f"☁️  Cloud Environment Detected. Using system driver: {system_driver_path}")
-                service = Service(system_driver_path)
-                # Apply Mandatory Cloud Options
-                for opt in cloud_options:
-                    options.add_argument(opt)
-            else:
-                logging.info("💻  Local Environment Detected. Using webdriver_manager.")
-                service = Service(ChromeDriverManager().install())
-                # Local Options
-                options.add_argument("--disable-blink-features=AutomationControlled")
-                options.add_argument("--window-size=1920,1080")
-                if self.headless:
-                    options.add_argument("--headless=new")
-            
-            try:
-                self.driver = webdriver.Chrome(service=service, options=options)
-                self.wait = WebDriverWait(self.driver, 10)
-            except Exception as e:
-                logging.error(f"❌ Driver Init Failed: {e}")
-                raise e
-
+        options = Options()
+        options.add_argument("--headless")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--disable-gpu")
+        if os.path.exists("/usr/bin/chromedriver"):
+            service = Service("/usr/bin/chromedriver")
+        else:
+            service = Service(ChromeDriverManager().install())
+            if not self.headless:
+                options.arguments.remove("--headless")
+        self.driver = webdriver.Chrome(service=service, options=options)
     def check_domain_availability(self, url: str) -> bool:
         """
         DNS Lookup to check if domain exists before Selenium tries to access it.
