@@ -4,3 +4,4 @@ beautifulsoup4
 deepl
 python-dotenv
 chromadb
+soynlp
