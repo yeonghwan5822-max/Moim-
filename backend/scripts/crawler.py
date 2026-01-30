@@ -39,39 +39,54 @@ class EbcCrawler:
         self.is_logged_in = False
 
     def _init_driver(self):
-        """Lazy initialization of driver with Cloud-Refined Options"""
+        """
+        Lazy initialization of driver.
+        Implements logic to handle Streamlit Cloud (System Driver) vs Local (Webdriver Manager).
+        """
         if not self.driver:
-            # Check if running in Cloud (headless mandatory)
-            # Streamlit Cloud usually doesn't have a display.
-            # We enforce headless if explicitly requested OR system implies it.
-            
-            from selenium.webdriver.chrome.options import Options
-            options = Options()
-            
-            # 1. Cloud Stability Options
-            options.add_argument("--headless=new") # Modern headless
-            options.add_argument("--no-sandbox")
-            options.add_argument("--disable-dev-shm-usage")
-            options.add_argument("--disable-gpu")
-            options.add_argument("--window-size=1920,1080")
-            options.add_argument("--disable-blink-features=AutomationControlled") # Bot Evasion
-            
-            # 2. Driver Selection (Cloud vs Local)
             from selenium import webdriver
             from selenium.webdriver.chrome.service import Service
+            from selenium.webdriver.chrome.options import Options
             from webdriver_manager.chrome import ChromeDriverManager
             
+            options = Options()
+            
+            # --- 1. Define Options ---
+            # Cloud Mandates (Applied if we detect Cloud, or if Headless requested)
+            # We strictly apply these for Cloud stability.
+            cloud_options = [
+                "--headless", 
+                "--no-sandbox", 
+                "--disable-dev-shm-usage", 
+                "--disable-gpu",
+                "--disable-blink-features=AutomationControlled"
+            ]
+            
+            # Check Environment: Streamlit Cloud usually has /usr/bin/chromedriver
+            system_driver_path = "/usr/bin/chromedriver"
+            is_cloud_env = os.path.exists(system_driver_path)
+            
+            if is_cloud_env:
+                logging.info(f"☁️  Cloud Environment Detected. Using system driver: {system_driver_path}")
+                service = Service(system_driver_path)
+                # Apply Mandatory Cloud Options
+                for opt in cloud_options:
+                    options.add_argument(opt)
+            else:
+                logging.info("💻  Local Environment Detected. Using webdriver_manager.")
+                service = Service(ChromeDriverManager().install())
+                # Local Options
+                options.add_argument("--disable-blink-features=AutomationControlled")
+                options.add_argument("--window-size=1920,1080")
+                if self.headless:
+                    options.add_argument("--headless=new")
+            
             try:
-                # Try creating driver with options
-                self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+                self.driver = webdriver.Chrome(service=service, options=options)
+                self.wait = WebDriverWait(self.driver, 10)
             except Exception as e:
-                # Fallback or detailed error logging
-                logging.error(f"Driver Init Failed: {e}")
-                # Maybe try without headless if local debugging? 
-                # But for Cloud deployment request, we Stick to Headless.
+                logging.error(f"❌ Driver Init Failed: {e}")
                 raise e
-
-            self.wait = WebDriverWait(self.driver, 10)
 
     def check_domain_availability(self, url: str) -> bool:
         """
