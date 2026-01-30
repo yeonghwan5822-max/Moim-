@@ -1,6 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 import time
+import streamlit as st
 from urllib.parse import urljoin
 
 class EbcCrawler:
@@ -14,7 +15,8 @@ class EbcCrawler:
     def close(self): pass
 
     def get_categorized_links(self, url, keyword=None, *args, **kwargs):
-        print(f"🚀 [Target] {url} | Keyword: {keyword}")
+        # [진단] 앱 화면에 현재 상태를 출력합니다.
+        st.write(f"🔍 **접속 시도:** {url}")
         raw_links = self.get_post_links(url, keyword)
         return {'notice': [], 'normal': raw_links}
 
@@ -22,51 +24,44 @@ class EbcCrawler:
         links = []
         try:
             res = self.session.get(url, headers=self.headers, timeout=10)
-            res.raise_for_status()
+            
+            # [진단] HTTP 상태 코드 확인
+            if res.status_code == 200:
+                st.success(f"✅ 서버 응답 성공 (200)")
+            else:
+                st.error(f"❌ 서버 응답 실패 (상태 코드: {res.status_code})")
+                return []
+
             soup = BeautifulSoup(res.text, 'html.parser')
             
-            # <a> 태그 전체 탐색
-            all_a_tags = soup.find_all('a', href=True)
-            print(f"🔍 Found {len(all_a_tags)} total links on page.")
+            # [진단] 페이지 제목 확인
+            title = soup.title.string if soup.title else "제목 없음"
+            st.write(f"📄 **페이지 제목:** {title}")
 
-            for a in all_a_tags:
+            # 모든 <a> 태그 탐색 (더 공격적인 추출)
+            all_a = soup.find_all('a', href=True)
+            st.write(f"🔗 **페이지 내 총 링크 수:** {len(all_a)}개")
+
+            for a in all_a:
                 href = a['href']
                 text = a.get_text(strip=True)
                 
-                # 그누보드 모바일/PC 게시글 공통 패턴
-                is_post = 'wr_id=' in href or 'board.php?bo_table=' in href
-                is_junk = any(x in href for x in ['write', 'update', 'delete', 'token', 'admin', 'search'])
+                # 게시글로 추정되는 모든 패턴 수집
+                is_post = any(p in href for p in ['wr_id=', 'bo_table=', 'board.php'])
+                is_junk = any(j in href for j in ['write', 'update', 'delete', 'token', 'search'])
                 
                 if is_post and not is_junk:
                     full_link = urljoin(url, href)
-                    
-                    # 키워드 필터링 (키워드가 없으면 무조건 수집)
-                    if not keyword:
-                        if full_link not in links: links.append(full_link)
-                    else:
-                        # 제목이나 링크에 키워드가 포함되었는지 확인
-                        if keyword in text or keyword in full_link:
-                            if full_link not in links: links.append(full_link)
+                    if not keyword or (keyword in text or keyword in full_link):
+                        if full_link not in links:
+                            links.append(full_link)
             
-            # 중복 제거 및 최종 결과 보고
-            unique_links = list(set(links))
-            print(f"✅ Filtered {len(unique_links)} candidate links.")
-            return unique_links
+            st.write(f"🎯 **최종 추출된 게시글:** {len(links)}개")
+            return links
 
         except Exception as e:
-            print(f"❌ Error: {e}")
+            st.error(f"❌ 크롤링 중 에러 발생: {e}")
             return []
 
     def get_post_content(self, url):
-        try:
-            res = self.session.get(url, headers=self.headers)
-            soup = BeautifulSoup(res.text, 'html.parser')
-            title = soup.find('h1') or soup.find('h2') or soup.find('title')
-            content = soup.find(id="bo_v_con") or soup.find(class_="view-content") or soup.body
-            return {
-                'title': title.get_text(strip=True) if title else "No Title",
-                'content': content.get_text(strip=True)[:500] if content else "No Content",
-                'date': '2026-01-30'
-            }
-        except:
-            return {'title': "Error", 'content': "", 'date': ""}
+        return {'title': 'Test', 'content': 'Test Content', 'date': '2026-01-30'}
