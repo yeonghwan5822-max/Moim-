@@ -1,4 +1,9 @@
-import streamlit as st
+import os
+
+target_file = "backend/streamlit_app.py"
+
+# 입력 실수 방지를 위한 UI 개선 버전
+bypass_code = """import streamlit as st
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
@@ -95,10 +100,14 @@ if st.button("🚀 입력 완료! 데이터 가져오기"):
             st.success(f"🎉 성공! {len(results)}개의 글을 찾았습니다.")
             
             # 표 그리기
-            table_head = "| 제목 | 바로가기 |\n|---|---|\n"
+            table_head = "| 제목 | 바로가기 |\\n|---|---|\\n"
             md_table = table_head
             for row in results:
-                md_table += f"| {row['제목']} | [이동하기]({row['링크']}) |\n"
+                md_table += f"| {row['제목']} | [이동하기]({row['링크']}) |\\n"
             st.markdown(md_table)
         elif phpsessid:
             st.info("결과가 없습니다.")
+"""
+
+with open(target_file, "w", encoding="utf-8") as f:
+    f.write(bypass_code)
