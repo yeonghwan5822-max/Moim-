@@ -1,4 +1,7 @@
-import streamlit as st
+import os
+
+# 1. 로그인 기능이 있는 새 화면 코드 (backend/streamlit_app.py)
+app_code = """import streamlit as st
 import sys
 import os
 
@@ -47,3 +50,20 @@ if st.button("🚀 로그인하고 게시물 찾기"):
                 st.warning("로그인은 성공했으나, 게시물을 찾지 못했습니다.")
         else:
             status_box.error("❌ 로그인 실패! 아이디와 비밀번호를 확인해주세요.")
+"""
+
+# 2. 라이브러리 목록 다이어트 (backend/requirements.txt)
+req_code = """streamlit==1.31.0
+requests
+beautifulsoup4
+urllib3
+"""
+
+# 파일 덮어쓰기 (경로 강제 지정)
+with open("backend/streamlit_app.py", "w", encoding="utf-8") as f:
+    f.write(app_code)
+
+with open("backend/requirements.txt", "w", encoding="utf-8") as f:
+    f.write(req_code)
+
+print("✅ [성공] 옛날 코드를 삭제하고 '로그인 버전'으로 교체했습니다!")
