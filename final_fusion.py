@@ -1,4 +1,9 @@
-import streamlit as st
+import os
+
+# 파일 경로: 메인 앱 파일에 모든 기능을 몰아넣습니다.
+target_file = "backend/streamlit_app.py"
+
+fusion_code = """import streamlit as st
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
@@ -118,3 +123,9 @@ if st.button("🚀 로그인하고 게시물 찾기"):
                     st.warning("게시물을 찾지 못했습니다.")
             else:
                 st.error("❌ 로그인 실패. 아이디/비번을 확인하세요.")
+"""
+
+with open(target_file, "w", encoding="utf-8") as f:
+    f.write(fusion_code)
+
+print("✅ [통합 완료] 이제 파일 충돌로 인한 에러는 발생하지 않습니다!")
