@@ -2,3 +2,8 @@ streamlit==1.31.0
 requests
 beautifulsoup4
 urllib3
+pandas
+deepl
+chromadb
+python-dotenv
+sentence-transformers
