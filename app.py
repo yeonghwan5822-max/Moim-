@@ -4,15 +4,19 @@ import sys
 import os
 import pandas as pd
 import time
-from pathlib import Path
-
 # [Fix] Workaround for ChromaDB requiring sqlite3 >= 3.35
 __import__('pysqlite3')
 sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 
-# Add current directory to path to allow absolute imports of backend
-current_dir = Path(__file__).parent
-sys.path.append(str(current_dir))
+# -------------------------------------------------------------
+# [Deployment Fix] Absolute Path Strategy
+# -------------------------------------------------------------
+# Get the absolute path of the current file (app.py)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Add BASE_DIR to sys.path to ensure we can import 'backend'
+if BASE_DIR not in sys.path:
+    sys.path.append(BASE_DIR)
 
 # Import strictly from backend package
 from backend.scripts.crawler import EbcCrawler
@@ -25,18 +29,22 @@ st.set_page_config(page_title="MOIM Smart Workstation", layout="wide", page_icon
 # Initialize Translator Engine (Singleton-like)
 @st.cache_resource
 def get_translator():
-    # Paths relative to root (current_dir)
-    base_dir = current_dir
-    glossary_path = base_dir / "backend/references/glossary.json"
-    corpus_path = base_dir / "backend/references/ebc_corpus.txt"
+    # Use robust absolute paths
+    glossary_path = os.path.join(BASE_DIR, "backend", "references", "glossary.json")
+    corpus_path = os.path.join(BASE_DIR, "backend", "references", "ebc_corpus.txt")
+    
+    # Debug information for deployment logs
+    print(f"[Info] Base Dir: {BASE_DIR}")
+    print(f"[Info] Glossary Path: {glossary_path}")
+    print(f"[Info] Corpus Path: {corpus_path}")
     
     # Check if files exist to avoid crash loop
-    if not glossary_path.exists():
-        print(f"Warning: Glossary not found at {glossary_path}")
-    if not corpus_path.exists():
-        print(f"Warning: Corpus not found at {corpus_path}")
+    if not os.path.exists(glossary_path):
+        print(f"[Error] Glossary NOT found at {glossary_path}")
+    if not os.path.exists(corpus_path):
+        print(f"[Error] Corpus NOT found at {corpus_path}")
         
-    return TranslatorEngine(str(glossary_path), str(corpus_path))
+    return TranslatorEngine(glossary_path, corpus_path)
 
 # Custom CSS for "Toss" style
 st.markdown("""
