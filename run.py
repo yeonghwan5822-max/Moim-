@@ -43,12 +43,25 @@ try:
     # [Step 5] Custom UI Styling
     st.markdown("""
     <style>
-        .stApp { background-color: #f2f4f6; }
-        .main-container { background-color: white; padding: 2rem; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-        h1 { font-family: 'Suit', sans-serif; color: #191f28; }
+        /* Dark Mode Global Settings */
+        .stApp { background-color: #0E1117; }
+        .main-container { background-color: #1E1E1E; padding: 2rem; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        h1 { font-family: 'Suit', sans-serif; color: #FFFFFF; }
+        
+        /* Tab Styling */
         .stTabs [data-baseweb="tab-list"] { gap: 20px; }
-        .stTabs [data-baseweb="tab"] { height: 50px; background-color: white; border-radius: 10px; padding: 10px 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .stTabs [aria-selected="true"] { background-color: #3182F6; color: white; }
+        .stTabs [data-baseweb="tab"] { 
+            height: 50px; 
+            background-color: #262730; 
+            border-radius: 10px; 
+            padding: 10px 20px; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            color: #FAFAFA; /* Tab Text Color */
+        }
+        .stTabs [aria-selected="true"] { 
+            background-color: #3182F6; 
+            color: white; 
+        }
     </style>
     """, unsafe_allow_html=True)
 
