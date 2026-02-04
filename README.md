@@ -1,6 +1,6 @@
 ---
 title: Moim Translator Global
-emoji: 🌍
+emoji: 🚀
 colorFrom: blue
 colorTo: indigo
 sdk: streamlit
