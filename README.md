@@ -5,7 +5,7 @@ colorFrom: blue
 colorTo: indigo
 sdk: streamlit
 sdk_version: 1.31.0
-app_file: backend/streamlit_app.py
+app_file: app.py
 pinned: false
 ---
 
@@ -17,6 +17,6 @@ This is a Streamlit application for:
 
 ## How to run locally
 ```bash
-pip install -r backend/requirements.txt
-streamlit run backend/streamlit_app.py
+pip install -r requirements.txt
+streamlit run app.py
 ```
