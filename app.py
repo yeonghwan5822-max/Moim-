@@ -6,6 +6,10 @@ import pandas as pd
 import time
 from pathlib import Path
 
+# [Fix] Workaround for ChromaDB requiring sqlite3 >= 3.35
+__import__('pysqlite3')
+sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+
 # Add current directory to path to allow absolute imports of backend
 current_dir = Path(__file__).parent
 sys.path.append(str(current_dir))
@@ -21,17 +25,18 @@ st.set_page_config(page_title="MOIM Smart Workstation", layout="wide", page_icon
 # Initialize Translator Engine (Singleton-like)
 @st.cache_resource
 def get_translator():
-    # Paths relative to backend/
-    base_dir = current_dir.parent
+    # Paths relative to root (current_dir)
+    base_dir = current_dir
     glossary_path = base_dir / "backend/references/glossary.json"
     corpus_path = base_dir / "backend/references/ebc_corpus.txt"
+    
+    # Check if files exist to avoid crash loop
+    if not glossary_path.exists():
+        print(f"Warning: Glossary not found at {glossary_path}")
+    if not corpus_path.exists():
+        print(f"Warning: Corpus not found at {corpus_path}")
+        
     return TranslatorEngine(str(glossary_path), str(corpus_path))
-
-try:
-    translator = get_translator()
-except Exception as e:
-    st.error(f"Translator Initialization Failed: {e}")
-    translator = None
 
 # Custom CSS for "Toss" style
 st.markdown("""
