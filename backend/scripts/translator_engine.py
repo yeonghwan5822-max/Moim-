@@ -124,7 +124,7 @@ class TranslatorEngine:
         prompt += f"Input Text: {text}\n"
         return prompt
 
-    def translate(self, text: str):
+    def translate(self, text: str, target_lang: str = "EN-US"):
         # 1. RAG Retrieval
         results = self.collection.query(query_texts=[text], n_results=1)
         
@@ -134,24 +134,27 @@ class TranslatorEngine:
         
         # 3. Translation Execution
         try:
-            if self.translator and self.deepl_glossary:
-                # Use DeepL with Glossary
-                res = self.translator.translate_text(
-                    text, 
-                    target_lang="EN-US", 
-                    glossary=self.deepl_glossary
-                )
-                return res.text
-            elif self.translator:
-                # DeepL without Glossary
-                res = self.translator.translate_text(text, target_lang="EN-US")
+            if self.translator:
+                # DeepL Glossary is specific to language pairs (e.g., KO -> EN).
+                # We only use it if target is EN-US and we have a glossary.
+                use_glossary = (target_lang == "EN-US" and self.deepl_glossary)
+                
+                kwargs = {
+                    "text": text,
+                    "target_lang": target_lang,
+                }
+                if use_glossary:
+                    kwargs["glossary"] = self.deepl_glossary
+                    
+                res = self.translator.translate_text(**kwargs)
                 return res.text
             else:
                 # Mock Mode: Simple replacement using local glossary
                 translated = text
-                for k, v in self.glossary_map.items():
-                    translated = translated.replace(k, f"[{v}]")
-                return f"[Mock DeepL] {translated}"
+                if target_lang == "EN-US": # Only apply mockup glossary for English
+                    for k, v in self.glossary_map.items():
+                        translated = translated.replace(k, f"[{v}]")
+                return f"[Mock {target_lang}] {translated}"
                 
         except Exception as e:
             logging.error(f"Translation Error: {e}")

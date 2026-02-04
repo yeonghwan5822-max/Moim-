@@ -1,104 +1,150 @@
+
 import streamlit as st
-import requests
-from bs4 import BeautifulSoup
-from urllib.parse import urljoin
-import urllib3
+import sys
+import os
+from pathlib import Path
 
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+# Add backend to sys.path to resolve imports
+current_dir = Path(__file__).parent
+backend_dir = current_dir.parent
+sys.path.append(str(backend_dir))
 
-class EbcCrawler:
-    def __init__(self):
-        self.session = requests.Session()
-        # 아이폰으로 위장 (406 에러 방지용 안전한 헤더)
-        self.headers = {
-            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
-            'Referer': 'https://m.ebcblue.com/'
+from backend.scripts.crawler import EbcCrawler
+from backend.scripts.translator_engine import TranslatorEngine
+
+# UI Configuration
+st.set_page_config(page_title="MOIM Smart Translator", layout="wide", page_icon="🌍")
+
+# Initialize Translator Engine (Singleton-like)
+@st.cache_resource
+def get_translator():
+    # Paths relative to backend/
+    base_dir = current_dir.parent
+    glossary_path = base_dir / "backend/references/glossary.json"
+    corpus_path = base_dir / "backend/references/ebc_corpus.txt"
+    return TranslatorEngine(str(glossary_path), str(corpus_path))
+
+try:
+    translator = get_translator()
+except Exception as e:
+    st.error(f"Translator Initialization Failed: {e}")
+    translator = None
+
+# Custom CSS for "Toss" style
+st.markdown("""
+<style>
+    .stApp {
+        background-color: #f2f4f6;
+    }
+    div[data-testid="stToolbar"] {
+        visibility: hidden;
+    }
+    .main-container {
+        background-color: white;
+        padding: 2rem;
+        border-radius: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    }
+    h1 {
+        font-family: 'Suit', sans-serif;
+        color: #191f28;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+st.title("🌍 MOIM 번역기 : Global Mode")
+
+# --- Sidebar / Header Controls ---
+with st.container():
+    st.markdown("### ⚙️ 설정 (Settings)")
+    
+    col1, col2 = st.columns([1, 1])
+    
+    with col1:
+        # Language Selector
+        target_lang_map = {
+            "영어 (English)": "EN-US",
+            "일본어 (Japanese)": "JA",
+            "중국어 (Chinese)": "ZH",
+            "베트남어 (Vietnamese)": "VI",
+            "스페인어 (Spanish)": "ES",
+            "프랑스어 (French)": "FR"
         }
-
-    def set_cookie(self, phpsessid):
-        # 쿠키 주입
-        cookie_obj = requests.cookies.create_cookie(
-            domain='m.ebcblue.com',
-            name='PHPSESSID',
-            value=phpsessid
+        selected_label = st.selectbox(
+            "도착 언어 (Target Language)",
+            options=list(target_lang_map.keys()),
+            index=0
         )
-        self.session.cookies.set_cookie(cookie_obj)
-
-    def run_scan(self, url, keyword):
-        st.info(f"🚀 '{url}' 로 접속을 시도합니다...")
+        target_lang_code = target_lang_map[selected_label]
         
-        try:
-            # 1. 접속 시도
-            res = self.session.get(url, headers=self.headers, verify=False)
-            res.encoding = res.apparent_encoding
-            
-            # 2. 결과 확인
-            if '로그아웃' in res.text or 'logout' in res.text:
-                st.success("✅ 로그인 상태 확인됨! (쿠키가 정상 작동 중)")
-                
-                soup = BeautifulSoup(res.text, 'html.parser')
-                found_data = []
-                
-                # 3. 데이터 수집
-                for a in soup.find_all('a', href=True):
-                    text = a.get_text(strip=True)
-                    href = a['href']
-                    full_link = urljoin(url, href)
-
-                    if not keyword or (keyword and keyword in text):
-                        if len(text) > 0 and 'javascript' not in href:
-                            found_data.append({"제목": text, "링크": full_link})
-                
-                return found_data
-            else:
-                st.error("❌ 로그인 실패. 쿠키 값이 만료되었거나 틀렸습니다.")
-                st.warning("팁: 크롬에서 다시 F12를 눌러 새로운 'PHPSESSID'를 복사해오세요.")
-                return []
-                
-        except Exception as e:
-            st.error(f"접속 에러: {e}")
-            return []
-
-# ==========================================
-# UI 구성 (헷갈림 방지)
-# ==========================================
-st.set_page_config(page_title="MOIM 최종 번역기", layout="wide")
-st.title("🍪 MOIM 번역기 : 쿠키 모드 (Final)")
-
-st.warning("👇 아래 두 칸을 정확히 채워주세요!")
-
-col1, col2 = st.columns(2)
-
-with col1:
-    st.subheader("1. 어디로 갈까요?")
-    # 기본값을 미리 넣어둠 (수정할 필요 없음)
-    url = st.text_input("접속할 주소 (URL)", value="http://m.ebcblue.com/")
-
-with col2:
-    st.subheader("2. 출입증(암호)은?")
-    # 여기가 쿠키 넣는 곳!
-    phpsessid = st.text_input("PHPSESSID 값 붙여넣기", placeholder="bk0gf... 같은 값을 여기에 넣으세요")
+    with col2:
+        phpsessid = st.text_input(
+            "PHPSESSID (로그인 세션)", 
+            placeholder="마이페이지 > 쿠키에서 복사 붙여넣기", 
+            type="password"
+        )
 
 st.divider()
-keyword = st.text_input("3. 찾을 단어 (예: 실습)", placeholder="비워두면 모든 글을 가져옵니다")
 
-if st.button("🚀 입력 완료! 데이터 가져오기"):
+# --- Main Input ---
+url_input = st.text_input("🔗 번역할 게시글/게시판 URL", placeholder="https://m.ebcblue.com/bbs/board.php?bo_table=...")
+keyword = st.text_input("🔍 (선택) 검색어 필터", placeholder="예: 실습, 공지")
+
+if st.button("🚀 번역 시작 (Translate)", type="primary"):
     if not phpsessid:
-        st.error("오른쪽 칸에 쿠키(PHPSESSID) 값을 넣어주세요!")
+        st.warning("⚠️ PHPSESSID를 입력해주세요 (로그인 필수).")
+    elif not url_input:
+        st.warning("⚠️ URL을 입력해주세요.")
     else:
-        crawler = EbcCrawler()
-        crawler.set_cookie(phpsessid) # 쿠키 장착
-        
-        results = crawler.run_scan(url, keyword)
-        
-        if results:
-            st.success(f"🎉 성공! {len(results)}개의 글을 찾았습니다.")
+        with st.spinner("🕵️‍♂️ 사이트에 접속하여 데이터를 수집하고 있습니다..."):
+            crawler = EbcCrawler()
+            crawler.session.cookies.set("PHPSESSID", phpsessid, domain="m.ebcblue.com")
             
-            # 표 그리기
-            table_head = "| 제목 | 바로가기 |\n|---|---|\n"
-            md_table = table_head
-            for row in results:
-                md_table += f"| {row['제목']} | [이동하기]({row['링크']}) |\n"
-            st.markdown(md_table)
-        elif phpsessid:
-            st.info("결과가 없습니다.")
+            # 1. Links Collection
+            # Uses existing crawler logic which returns dict {'notice': [], 'normal': []}
+            if 'wr_id=' in url_input:
+                # Direct post access
+                links = [url_input]
+            else:
+                # List scan
+                crawl_result = crawler.get_categorized_links(url_input, keyword)
+                links = crawl_result.get('normal', []) + crawl_result.get('notice', [])
+
+        if not links:
+            st.error("게시글을 찾을 수 없습니다. 로그인 세션이 만료되었거나 권한이 없을 수 있습니다.")
+        else:
+            st.success(f"총 {len(links)}개의 게시글을 발견했습니다. 번역을 시작합니다!")
+            
+            progress_bar = st.progress(0)
+            
+            for idx, link in enumerate(links):
+                # 2. Extract Content
+                post_data = crawler.get_post_content(link)
+                
+                if post_data['title'] == "Error" or not post_data['content']:
+                    continue
+                    
+                # 3. Translate
+                # We translate Title and Content
+                with st.spinner(f"번역 중... {post_data['title'][:10]}..."):
+                    translated_title = translator.translate(post_data['title'], target_lang=target_lang_code)
+                    
+                    # Split content for better translation (simple chunking by newline for now if too long)
+                    # For V1, pass full content if < 2000 chars, else just translate the first chunk or summary
+                    # DeepL has limits, be careful.
+                    content_to_translate = post_data['content'][:3000] # Limit char count for PoC
+                    translated_content = translator.translate(content_to_translate, target_lang=target_lang_code)
+
+                # 4. Display Result
+                with st.expander(f"📄 {translated_title} (Original: {post_data['title']})", expanded=(idx==0)):
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        st.markdown("**[Original]**")
+                        st.text(post_data['content'])
+                    with c2:
+                        st.markdown(f"**[{selected_label}]**")
+                        st.markdown(translated_content)
+                        
+                    st.caption(f"Source: {link}")
+                
+                progress_bar.progress((idx + 1) / len(links))
