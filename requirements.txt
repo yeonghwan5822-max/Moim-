@@ -7,3 +7,4 @@ deepl
 chromadb
 python-dotenv
 sentence-transformers
+pysqlite3-binary

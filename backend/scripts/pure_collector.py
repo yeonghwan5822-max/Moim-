@@ -91,8 +91,8 @@ class PureCollector:
         
         return list(set(all_links)) # 최종 중복 제거
 
-    def process_post(self, url: str):
-        """개별 게시글 상세 수집 및 저장"""
+    def process_post(self, url: str, keyword: str = None):
+        """개별 게시글 상세 수집 및 저장 (keyword 필터링 추가)"""
         try:
             res = self.session.get(url, headers=self.headers, verify=False, timeout=10)
             res.encoding = res.apparent_encoding
@@ -103,7 +103,11 @@ class PureCollector:
             post_id_val = post_id.group(1) if post_id else "0"
             
             # 카테고리 (게시판 이름) - 타이틀이나 네비게이션바에서 추출 시도
-            category_node = soup.find(id="bo_v_title")
+            title_node = soup.find(id="bo_v_title")
+            if not title_node:
+                title_node = soup.find(class_="bo_v_tit")
+            title_text = title_node.get_text(strip=True) if title_node else ""
+
             # 보통 제목 위에 카테고리가 있거나, URL bo_table 파라미터 사용
             category_code = re.search(r'bo_table=([^&]+)', url)
             category = category_code.group(1) if category_code else "Unknown"
@@ -116,6 +120,12 @@ class PureCollector:
 
             # HTML Cleaning
             clean_content = self.clean_text(content_div.get_text("\n", strip=True))
+            
+            # [Logic Update] Keyword Filtering
+            if keyword:
+                if (keyword not in title_text) and (keyword not in clean_content):
+                    # 키워드가 제목이나 본문에 없으면 건너뜀
+                    return
             
             # Smart Chunking
             chunks = self.smart_chunking(clean_content)

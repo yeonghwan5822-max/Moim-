@@ -119,6 +119,9 @@ try:
         collect_sessid = c1.text_input("PHPSESSID", type="password", key="tab2_sessid")
         collect_pages = c2.number_input("페이지 수", min_value=1, value=1, key="tab2_pages")
         
+        # [UI Update] Keyword Input
+        collect_keyword = st.text_input("검색 키워드 (선택 사항)", placeholder="예: 장학금, 팀플 (비워두면 모든 글 수집)", key="tab2_kw")
+        
         if st.button("🚀 데이터 수집 시작", type="primary", key="tab2_btn"):
             if not collect_sessid:
                 st.error("PHPSESSID 필요")
@@ -131,17 +134,26 @@ try:
                     status.update(label="실패: 게시글 없음", state="error")
                 else:
                     status.write(f"{len(links)}개 게시글 발견")
+                    
+                    if collect_keyword:
+                        status.write(f"🔍 키워드 '{collect_keyword}'가 포함된 글을 찾는 중...")
+                    
                     prog = st.progress(0)
                     for i, link in enumerate(links):
-                        collector.process_post(link)
+                        # [Logic Update] Pass keyword to process_post
+                        collector.process_post(link, keyword=collect_keyword)
                         prog.progress((i+1)/len(links))
                         time.sleep(0.1)
                     
-                    status.update(label="완료!", state="complete")
+                    collected_count = len(collector.raw_data)
+                    status.update(label=f"완료! ({collected_count}개 수집됨)", state="complete")
+                    
                     if collector.raw_data:
                         df = pd.DataFrame(collector.raw_data)
                         csv = df.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig')
                         st.download_button("📥 CSV 다운로드", csv, "moim_raw_data.csv", "text/csv")
+                    else:
+                        st.warning("수집된 데이터가 없습니다. (키워드 불일치 등)")
 
 except Exception as e:
     # [EMERGENCY MODE] Display Error Traceback on UI
