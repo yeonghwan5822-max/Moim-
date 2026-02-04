@@ -1,22 +1,15 @@
 ---
-title: Moim Translator Global
+title: Moim Translator Global v2
 emoji: 🚀
-colorFrom: blue
-colorTo: indigo
+colorFrom: pink
+colorTo: purple
 sdk: streamlit
 sdk_version: 1.31.0
-app_file: app.py
+app_file: run.py
 pinned: false
 ---
 
-# MOIM Translator & Data Collector
+# MOIM Translator & Data Collector v2
 
-This is a Streamlit application for:
-1. Translating community posts (Smart Mode/Global Mode).
-2. Collecting raw text data for training (Data Collector).
-
-## How to run locally
-```bash
-pip install -r requirements.txt
-streamlit run app.py
-```
+Factory Reset Version.
+User: Please run `run.py`

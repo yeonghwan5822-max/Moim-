@@ -52,7 +52,7 @@ try:
     </style>
     """, unsafe_allow_html=True)
 
-    st.title("🏫 MOIM Smart Workstation v2.0 (New)")
+    st.title("🏫 MOIM Smart Workstation v3.0 (Factory Reset)")
 
     # [Step 6] Tabs & Main Logic
     tab1, tab2 = st.tabs(["🤖 번역기 (Translator)", "🕷️ 데이터 수집 (Data Collector)"])
